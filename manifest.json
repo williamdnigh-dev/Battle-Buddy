@@ -2,7 +2,7 @@
   "name": "MH Log — VA Documentation",
   "short_name": "MH Log",
   "description": "Mental health incident and daily check-in logger for VA claim documentation",
-  "start_url": "/index.html",
+  "start_url": "/Battle-Buddy/index.html",
   "display": "standalone",
   "background_color": "#0d0f14",
   "theme_color": "#0a0c10",
