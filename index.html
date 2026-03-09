@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0c10" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="MH Log" />
+  <link rel="manifest" href="manifest.json" />
+  <title>MH Log</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0f14;
+      --surface: #0a0c10;
+      --border:  #1e2330;
+      --border2: #2d3748;
+      --text:    #c9cdd6;
+      --text2:   #718096;
+      --text3:   #4a5568;
+      --text4:   #2d3748;
+      --hi:      #e2e8f0;
+      --red:     #c53030;
+      --red2:    #742a2a;
+      --redfg:   #fc8181;
+      --green:   #4a7c59;
+      --amber:   #b7791f;
+      --safe:    env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px 12px;
+      padding-top: calc(14px + env(safe-area-inset-top, 0px));
+      flex-shrink: 0;
+    }
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .header-sub { font-size: 10px; letter-spacing: 3px; color: var(--text3); margin-bottom: 2px; }
+    .header-title { font-size: 15px; color: var(--hi); font-weight: bold; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .tab {
+      flex: 1;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text3);
+      padding: 11px 8px;
+      font-size: 10px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color .15s;
+    }
+    .tab.active { border-bottom-color: var(--red); color: var(--hi); }
+
+    /* ── Scroll body ── */
+    .scroll-body {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 20px 16px;
+      padding-bottom: calc(20px + var(--safe));
+    }
+
+    /* ── Bottom action bar ── */
+    .action-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      padding-bottom: calc(12px + var(--safe));
+      flex-shrink: 0;
+    }
+
+    /* ── Buttons ── */
+    .btn-red {
+      background: var(--red);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 14px 20px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      font-family: inherit;
+      width: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text3);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 13px 20px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      width: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-back {
+      background: none;
+      border: none;
+      color: var(--text3);
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 1px;
+      padding: 0;
+      margin-bottom: 24px;
+      display: block;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-row { display: flex; gap: 10px; }
+    .btn-row .btn-red, .btn-row .btn-ghost { width: auto; flex: 1; }
+
+    /* ── Cards ── */
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+      margin-bottom: 10px;
+      background: var(--surface);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      active: opacity .8;
+    }
+    .card:active { opacity: .75; }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .card-type { font-size: 12px; letter-spacing: 1px; }
+    .card-date { font-size: 10px; color: var(--text4); text-align: right; flex-shrink: 0; }
+    .card-badge { font-size: 10px; color: var(--text3); border: 1px solid var(--border2); padding: 1px 6px; border-radius: 2px; margin-left: 8px; }
+    .card-sub { font-size: 11px; color: var(--text3); margin-top: 6px; }
+    .card-preview { font-size: 12px; color: var(--text2); margin-top: 6px; line-height: 1.5; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+    /* ── Form elements ── */
+    .field { margin-bottom: 22px; }
+    .field-label { font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+    .field input, .field textarea, .field select {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 12px;
+      font-size: 14px;
+      font-family: inherit;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .field input:focus, .field textarea:focus { outline: none; border-color: var(--border2); }
+    .field textarea { resize: none; line-height: 1.6; }
+    input[type="datetime-local"] { color-scheme: dark; }
+    input[type="number"] { color-scheme: dark; }
+
+    /* ── Num pad ── */
+    .numpad { display: flex; flex-wrap: wrap; gap: 6px; }
+    .numpad-btn {
+      width: 44px; height: 44px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text3);
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .1s;
+    }
+    .numpad-btn.active-green  { background: #4a7c59; border-color: #4a7c59; color: #fff; }
+    .numpad-btn.active-amber  { background: #b7791f; border-color: #b7791f; color: #fff; }
+    .numpad-btn.active-red    { background: var(--red); border-color: var(--red); color: #fff; }
+
+    /* ── Symptom grid ── */
+    .sym-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sym-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text3);
+      padding: 13px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      line-height: 1.3;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .sym-btn.active   { border-color: var(--red); color: var(--hi); background: #1a1020; }
+    .sym-btn.ideation { border-color: var(--red2); color: var(--redfg); }
+    .sym-btn.ideation.active { background: #1a0808; }
+
+    /* ── Toggle ── */
+    .toggle-row { display: flex; gap: 8px; }
+    .toggle-btn {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 13px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .toggle-btn.active { border-color: var(--red); background: #1a2035; }
+
+    /* ── Step label ── */
+    .step-label { font-size: 10px; color: var(--text3); letter-spacing: 3px; margin-bottom: 14px; }
+    .step-title { font-size: 16px; color: var(--hi); margin-bottom: 22px; }
+
+    /* ── Detail view ── */
+    .detail-date  { font-size: 10px; color: var(--text3); letter-spacing: 2px; margin-bottom: 4px; }
+    .detail-title { font-size: 20px; margin-bottom: 4px; }
+    .detail-sub   { font-size: 12px; color: var(--text3); margin-bottom: 24px; }
+    .detail-divider { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 20px; }
+    .qa-q { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+    .qa-a { font-size: 13px; color: var(--text); line-height: 1.6; padding-left: 12px; border-left: 2px solid var(--border); margin-bottom: 20px; }
+    .detail-row { display: flex; gap: 12px; margin-bottom: 12px; }
+    .detail-row-label { font-size: 10px; color: var(--text3); letter-spacing: 1px; min-width: 90px; padding-top: 1px; }
+    .detail-row-val { font-size: 13px; color: var(--text); }
+
+    /* ── Tags ── */
+    .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .tag { font-size: 10px; padding: 3px 9px; border-radius: 3px; border: 1px solid var(--border); color: var(--text4); }
+    .tag.active { border-color: var(--red); color: var(--redfg); background: #1a1020; }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; padding: 70px 0; color: var(--text4); }
+    .empty-icon { font-size: 36px; margin-bottom: 14px; }
+    .empty-label { font-size: 11px; letter-spacing: 2px; margin-bottom: 8px; }
+    .empty-sub { font-size: 11px; color: var(--border); }
+
+    /* ── Count badge ── */
+    .count { margin-left: auto; padding: 11px 16px; font-size: 10px; color: var(--text4); }
+
+    /* ── Install banner ── */
+    #install-banner {
+      display: none;
+      background: #1a2035;
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      font-size: 12px;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    #install-banner span { flex: 1; color: var(--text2); }
+    #install-btn { background: var(--red); color: #fff; border: none; border-radius: 4px; padding: 7px 14px; font-size: 11px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+    #dismiss-btn { background: none; border: none; color: var(--text3); font-size: 18px; cursor: pointer; padding: 0 4px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-row">
+      <div>
+        <div class="header-sub">VA CLAIM DOCUMENTATION</div>
+        <div class="header-title">Mental Health Log</div>
+      </div>
+      <div id="header-btns"></div>
+    </div>
+  </div>
+  <div id="install-banner">
+    <span>Add to home screen for offline access</span>
+    <button id="install-btn">INSTALL</button>
+    <button id="dismiss-btn">✕</button>
+  </div>
+  <div id="tab-bar" class="tabs" style="display:none">
+    <button class="tab active" data-tab="incidents">INCIDENTS</button>
+    <button class="tab" data-tab="checkins">DAILY CHECK-INS</button>
+    <div class="count" id="count-badge"></div>
+  </div>
+  <div class="scroll-body" id="main"></div>
+  <div class="action-bar" id="action-bar" style="display:none"></div>
+</div>
+
+<script>
+// ── Data ─────────────────────────────────────────────────────────────────────
+
+const SYMPTOM_PROMPTS = {
+  hypervigilance: ["Where were you and what triggered the hypervigilance?","What were you scanning for? What felt unsafe?","How long did it last? What (if anything) brought you down from it?"],
+  startle:        ["What was the trigger? (alarm, siren, sudden noise, movement)","Describe your physical reaction — heart rate, freeze, flinch, drop?","How long before you felt baseline again?"],
+  avoidance:      ["What situation, place, or event did you avoid?","What specifically were you avoiding — noise, crowds, unpredictability?","Did avoiding it affect work, family, or plans?"],
+  sleep:          ["What happened — couldn't fall asleep, woke up, nightmare?","Describe the nightmare or intrusive thought if you're willing.","How did the next day go because of it?"],
+  dissociation:   ["What were you doing when it started?","How long were you 'out'? What pulled you back?","Any idea what preceded it?"],
+  alcohol:        ["What were you trying to manage or avoid feeling?","How much, and did it work?","What would have happened if you hadn't used it to cope?"],
+  relationship:   ["What happened — withdrawal, conflict, shutdown, disconnection?","Do you think it was driven by a symptom? Which one?","How did it land with your wife or kids?"],
+  anhedonia:      ["What did you not want to do that you normally would — or should?","How long has this been present?","Is it across the board or specific things?"],
+  ideation:       ["You don't have to describe it fully — just note it happened.","What was the context/trigger cascade?","What kept you stable or brought you back?"],
+  other:          ["Describe what happened in your own words.","How intense was it, 1–10?","Any physical symptoms alongside it?"],
+};
+
+const SYMPTOM_LABELS = {
+  hypervigilance:"Hypervigilance", startle:"Startle Response", avoidance:"Avoidance",
+  sleep:"Sleep Disruption", dissociation:"Dissociative Episode", alcohol:"Alcohol as Coping",
+  relationship:"Relationship Impact", anhedonia:"Anhedonia / Numbness", ideation:"Suicidal Ideation", other:"Other",
+};
+
+const CHECKIN_SYMS = [
+  {key:"hypervigilance",label:"Hypervigilance"},{key:"startle",label:"Startle Response"},
+  {key:"avoidance",label:"Avoidance"},{key:"sleep",label:"Poor Sleep"},
+  {key:"dissociation",label:"Dissociation"},{key:"alcohol",label:"Alcohol Coping"},
+  {key:"relationship",label:"Relationship Strain"},{key:"anhedonia",label:"Anhedonia"},
+  {key:"ideation",label:"Ideation"},
+];
+
+// ── Storage ───────────────────────────────────────────────────────────────────
+
+const INC_KEY = 'mhlog_incidents_v1';
+const CHK_KEY = 'mhlog_checkins_v1';
+
+function load(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; }
+}
+function save(key, data) {
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+}
+
+let incidents = load(INC_KEY);
+let checkins  = load(CHK_KEY);
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+let state = {
+  view: 'list',   // list | newInc | newCI | detail | detailCI
+  tab:  'incidents',
+  selected: null,
+  // incident form
+  inc: { symptom:'', severity:'', location:'', responses:{}, freewrite:'', timestamp: now() },
+  incStep: 0,
+  // checkin form
+  ci: { mood:'', sleepHours:'', sleepQuality:'', symptoms:[], alcohol:'', workImpact:'', notes:'', timestamp: now() },
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function now() { return new Date().toISOString(); }
+
+function sevColor(s) {
+  const n = parseInt(s);
+  if (n <= 3) return '#4a7c59';
+  if (n <= 6) return '#b7791f';
+  return '#c53030';
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function toInputVal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso), p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function el(tag, attrs={}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c == null) continue;
+    e.append(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return e;
+}
+
+function div(cls, ...children) { return el('div', {class:cls}, ...children); }
+function span(cls, text) { const s = document.createElement('span'); s.className = cls; s.textContent = text; return s; }
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
+function doExport() {
+  const iText = incidents.length === 0 ? '  (none)\n' : incidents.map(e => {
+    const qa = (SYMPTOM_PROMPTS[e.symptom]||[]).map((q,i)=>`  Q: ${q}\n  A: ${e.responses?.[i]||'(no response)'}`).join('\n');
+    return `=== ${fmtDate(e.timestamp)} ===\nType: ${SYMPTOM_LABELS[e.symptom]||e.symptom}\nSeverity: ${e.severity}/10\nLocation/Context: ${e.location||'(not noted)'}\n\nPrompted Responses:\n${qa}\n\nAdditional Notes:\n  ${e.freewrite||'(none)'}\n`;
+  }).join('\n');
+
+  const cText = checkins.length === 0 ? '  (none)\n' : checkins.map(c => {
+    const active = CHECKIN_SYMS.filter(s=>c.symptoms?.includes(s.key)).map(s=>s.label);
+    return `=== ${fmtDate(c.timestamp)} ===\nMood: ${c.mood}/10\nSleep: ${c.sleepHours} hrs  |  Quality: ${c.sleepQuality}/10\nActive Symptoms: ${active.length?active.join(', '):'none flagged'}\nAlcohol Used: ${c.alcohol==='yes'?'Yes':'No'}\nWork Impact: ${c.workImpact||'(not noted)'}\nNotes: ${c.notes||'(none)'}\n`;
+  }).join('\n');
+
+  const text = `PTSD / MENTAL HEALTH LOG — VA CLAIM DOCUMENTATION\nGenerated: ${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}\n${'='.repeat(60)}\n\nSECTION 1 — INCIDENT LOG (${incidents.length} entries)\n${'─'.repeat(60)}\n${iText}\nSECTION 2 — DAILY CHECK-INS (${checkins.length} entries)\n${'─'.repeat(60)}\n${cText}`;
+
+  const blob = new Blob([text],{type:'text/plain'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download=`mh-log-${new Date().toISOString().slice(0,10)}.txt`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+function render() {
+  const main   = document.getElementById('main');
+  const hbtns  = document.getElementById('header-btns');
+  const tabBar = document.getElementById('tab-bar');
+  const actBar = document.getElementById('action-bar');
+  const badge  = document.getElementById('count-badge');
+
+  main.innerHTML = ''; hbtns.innerHTML = ''; actBar.innerHTML = '';
+  actBar.style.display = 'none';
+  tabBar.style.display = 'none';
+
+  const {view, tab} = state;
+
+  // ── List ──
+  if (view === 'list') {
+    tabBar.style.display = 'flex';
+    badge.textContent = `${incidents.length}i · ${checkins.length}c`;
+
+    // Export btn in header
+    if (incidents.length > 0 || checkins.length > 0) {
+      const expBtn = el('button',{class:'btn-ghost',style:'width:auto;padding:8px 12px;font-size:11px;',onClick:doExport},'EXPORT');
+      hbtns.appendChild(expBtn);
+    }
+
+    // Action bar
+    actBar.style.display = 'block';
+    const label = tab === 'incidents' ? '+ LOG INCIDENT' : '+ DAILY CHECK-IN';
+    const onClick = tab === 'incidents' ? startNewInc : startNewCI;
+    actBar.appendChild(el('button',{class:'btn-red',onClick},label));
+
+    if (tab === 'incidents') renderIncidentList(main);
+    else renderCheckinList(main);
+
+    // Sync tab UI
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
+  }
+
+  // ── New Incident ──
+  else if (view === 'newInc') renderNewInc(main, actBar);
+
+  // ── New Check-in ──
+  else if (view === 'newCI')  renderNewCI(main, actBar);
+
+  // ── Detail Incident ──
+  else if (view === 'detail') renderDetail(main, state.selected);
+
+  // ── Detail Check-in ──
+  else if (view === 'detailCI') renderDetailCI(main, state.selected);
+}
+
+// ── Incident list ─────────────────────────────────────────────────────────────
+
+function renderIncidentList(main) {
+  if (incidents.length === 0) {
+    main.appendChild(emptyState('NO INCIDENTS LOGGED','Log incidents as they happen for VA documentation'));
+    return;
+  }
+  const lbl = div('step-label'); lbl.textContent = `${incidents.length} INCIDENT${incidents.length!==1?'S':''}`;
+  main.appendChild(lbl);
+  incidents.forEach(e => {
+    const card = div('card');
+    card.style.borderLeft = `3px solid ${sevColor(e.severity)}`;
+    card.addEventListener('click', () => { state.selected = e; state.view = 'detail'; render(); });
+
+    const hdr = div('card-header');
+    const left = div('');
+    const typeSpan = span('card-type', SYMPTOM_LABELS[e.symptom]||e.symptom);
+    typeSpan.style.color = sevColor(e.severity);
+    const badge = el('span',{class:'card-badge'},`${e.severity}/10`);
+    left.append(typeSpan, badge);
+    const dateSpan = span('card-date', fmtDate(e.timestamp).replace(', ',' '));
+    hdr.append(left, dateSpan);
+    card.appendChild(hdr);
+
+    if (e.location) { const sub = div('card-sub'); sub.textContent = e.location; card.appendChild(sub); }
+    if (e.freewrite) { const pre = div('card-preview'); pre.textContent = e.freewrite; card.appendChild(pre); }
+    main.appendChild(card);
+  });
+}
+
+// ── Check-in list ─────────────────────────────────────────────────────────────
+
+function renderCheckinList(main) {
+  if (checkins.length === 0) {
+    main.appendChild(emptyState('NO CHECK-INS YET','Daily check-ins build a symptom baseline for your claim'));
+    return;
+  }
+  const lbl = div('step-label'); lbl.textContent = `${checkins.length} CHECK-IN${checkins.length!==1?'S':''}`;
+  main.appendChild(lbl);
+  checkins.forEach(c => {
+    const card = div('card');
+    card.addEventListener('click', () => { state.selected = c; state.view = 'detailCI'; render(); });
+
+    const hdr = div('card-header');
+    const left = div('');
+    const mood = span('card-type',`MOOD ${c.mood}/10`);
+    mood.style.color = sevColor(c.mood);
+    const slp = el('span',{class:'card-badge'},`SLEEP ${c.sleepHours}h`);
+    left.append(mood, slp);
+    hdr.append(left, span('card-date', fmtDate(c.timestamp).replace(', ',' ')));
+    card.appendChild(hdr);
+
+    const active = CHECKIN_SYMS.filter(s=>c.symptoms?.includes(s.key));
+    if (active.length) { const sub = div('card-sub'); sub.textContent = active.map(s=>s.label).join(' · '); card.appendChild(sub); }
+    if (c.notes) { const pre = div('card-preview'); pre.textContent = c.notes; card.appendChild(pre); }
+    main.appendChild(card);
+  });
+}
+
+// ── New Incident ──────────────────────────────────────────────────────────────
+
+function renderNewInc(main, actBar) {
+  const back = el('button',{class:'btn-back',onClick:()=>{state.view='list';render();}}, '← CANCEL');
+  main.appendChild(back);
+
+  const step = state.incStep;
+
+  if (step === 0) {
+    stepLabel(main, 1, 4, 'INCIDENT TYPE');
+    stepTitle(main, 'What happened?');
+    const grid = div('sym-grid');
+    Object.entries(SYMPTOM_LABELS).forEach(([key,label]) => {
+      const btn = el('button',{class:`sym-btn${key==='ideation'?' ideation':''}`},label);
+      btn.addEventListener('click',()=>{ state.inc.symptom=key; state.incStep=1; render(); });
+      grid.appendChild(btn);
+    });
+    main.appendChild(grid);
+  }
+
+  else if (step === 1) {
+    stepLabel(main, 2, 4, 'SEVERITY & CONTEXT');
+    stepTitle(main, SYMPTOM_LABELS[state.inc.symptom]);
+
+    // Date picker
+    dateField(main, 'WHEN DID THIS OCCUR?', state.inc.timestamp, ts => state.inc.timestamp = ts);
+
+    // Severity
+    const sevField = div('field');
+    const sevLabel = div('field-label'); sevLabel.textContent = 'SEVERITY (1 = noticeable / 10 = most intense)';
+    sevField.appendChild(sevLabel);
+    sevField.appendChild(numpad(state.inc.severity, v => { state.inc.severity = v; render(); }, true));
+    main.appendChild(sevField);
+
+    // Location
+    const locField = div('field');
+    const locLabel = div('field-label'); locLabel.textContent = 'LOCATION / CONTEXT (optional)';
+    const locInput = el('input',{type:'text',placeholder:'e.g. work site, home after amber alert'});
+    locInput.value = state.inc.location;
+    locInput.addEventListener('input', e => state.inc.location = e.target.value);
+    locField.append(locLabel, locInput);
+    main.appendChild(locField);
+
+    actBar.style.display = 'block';
+    const btn = el('button',{class:'btn-red',onClick:()=>{ if(state.inc.severity){ state.incStep=2; render(); } }},'CONTINUE →');
+    if (!state.inc.severity) btn.style.opacity = '0.4';
+    actBar.appendChild(btn);
+  }
+
+  else if (step === 2) {
+    stepLabel(main, 3, 4, 'INCIDENT DETAILS');
+    const hint = div(''); hint.style.cssText='font-size:12px;color:var(--text3);margin-bottom:22px;line-height:1.5';
+    hint.textContent = 'Specifics matter — triggers, duration, functional impact carry weight in documentation.';
+    main.appendChild(hint);
+
+    const prompts = SYMPTOM_PROMPTS[state.inc.symptom] || [];
+    prompts.forEach((q, i) => {
+      const f = div('field');
+      const lbl = div('field-label'); lbl.textContent = q; lbl.style.textTransform='none'; lbl.style.letterSpacing='0';lbl.style.fontSize='12px';lbl.style.color='var(--text2)';
+      const ta = el('textarea'); ta.rows=3; ta.value = state.inc.responses[i]||'';
+      ta.addEventListener('input', e => { state.inc.responses[i]=e.target.value; });
+      f.append(lbl, ta); main.appendChild(f);
+    });
+
+    actBar.style.display = 'block';
+    actBar.appendChild(el('button',{class:'btn-red',onClick:()=>{state.incStep=3;render();}},'CONTINUE →'));
+  }
+
+  else if (step === 3) {
+    stepLabel(main, 4, 4, 'ADDITIONAL NOTES');
+    const hint = div(''); hint.style.cssText='font-size:12px;color:var(--text3);margin-bottom:20px;line-height:1.6';
+    hint.textContent = 'What the day looked like before, functional impact after, work or family effect. Optional.';
+    main.appendChild(hint);
+
+    const f = div('field');
+    const ta = el('textarea'); ta.rows=7; ta.value=state.inc.freewrite; ta.placeholder='Write freely. This stays in your log.';
+    ta.addEventListener('input', e => state.inc.freewrite = e.target.value);
+    f.appendChild(ta); main.appendChild(f);
+
+    actBar.style.display = 'block';
+    const row = div('btn-row');
+    row.appendChild(el('button',{class:'btn-red',onClick:saveInc},'SAVE ENTRY'));
+    row.appendChild(el('button',{class:'btn-ghost',onClick:saveInc},'SKIP & SAVE'));
+    actBar.appendChild(row);
+  }
+}
+
+// ── New Check-in ──────────────────────────────────────────────────────────────
+
+function renderNewCI(main, actBar) {
+  const back = el('button',{class:'btn-back',onClick:()=>{state.view='list';render();}}, '← CANCEL');
+  main.appendChild(back);
+  stepLabel(main, null, null, 'DAILY CHECK-IN');
+  stepTitle(main, 'How was today?');
+
+  dateField(main, 'DATE / TIME', state.ci.timestamp, ts => state.ci.timestamp = ts);
+
+  // Mood
+  const moodF = div('field');
+  const moodL = div('field-label'); moodL.textContent = 'MOOD BASELINE (1 = floor / 10 = solid)';
+  moodF.append(moodL, numpad(state.ci.mood, v => { state.ci.mood=v; render(); }, true));
+  main.appendChild(moodF);
+
+  // Sleep hours + quality
+  const sleepRow = div(''); sleepRow.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px';
+  const shF=div('field'); shF.style.marginBottom='0';
+  const shL=div('field-label'); shL.textContent='SLEEP HOURS';
+  const shI=el('input',{type:'number',min:'0',max:'24',step:'0.5',placeholder:'e.g. 5.5'}); shI.value=state.ci.sleepHours;
+  shI.addEventListener('input',e=>state.ci.sleepHours=e.target.value);
+  shF.append(shL,shI);
+
+  const sqF=div('field'); sqF.style.marginBottom='0';
+  const sqL=div('field-label'); sqL.textContent='SLEEP QUALITY';
+  sqF.append(sqL, smallNumpad(state.ci.sleepQuality, v=>{state.ci.sleepQuality=v;render();}));
+
+  sleepRow.append(shF,sqF);
+  main.appendChild(sleepRow);
+
+  // Symptoms
+  const symF=div('field');
+  const symL=div('field-label'); symL.textContent='SYMPTOMS PRESENT TODAY';
+  const symGrid=div('sym-grid');
+  CHECKIN_SYMS.forEach(s=>{
+    const on=state.ci.symptoms.includes(s.key);
+    const btn=el('button',{class:`sym-btn${on?' active':''}${s.key==='ideation'?' ideation':''}`},s.label);
+    btn.addEventListener('click',()=>{
+      state.ci.symptoms = on ? state.ci.symptoms.filter(k=>k!==s.key) : [...state.ci.symptoms,s.key];
+      render();
+    });
+    symGrid.appendChild(btn);
+  });
+  symF.append(symL,symGrid); main.appendChild(symF);
+
+  // Alcohol
+  const alcF=div('field');
+  const alcL=div('field-label'); alcL.textContent='ALCOHOL USED TO COPE?';
+  const alcRow=div('toggle-row');
+  ['yes','no'].forEach(opt=>{
+    const on=state.ci.alcohol===opt;
+    const btn=el('button',{class:`toggle-btn${on?' active':''}`},opt.toUpperCase());
+    btn.addEventListener('click',()=>{state.ci.alcohol=opt;render();});
+    alcRow.appendChild(btn);
+  });
+  alcF.append(alcL,alcRow); main.appendChild(alcF);
+
+  // Work impact
+  const wiF=div('field');
+  const wiL=div('field-label'); wiL.textContent='WORK / FUNCTIONAL IMPACT (optional)';
+  const wiI=el('input',{type:'text',placeholder:"e.g. left site early, couldn't focus"});
+  wiI.value=state.ci.workImpact;
+  wiI.addEventListener('input',e=>state.ci.workImpact=e.target.value);
+  wiF.append(wiL,wiI); main.appendChild(wiF);
+
+  // Notes
+  const nF=div('field');
+  const nL=div('field-label'); nL.textContent='NOTES (optional)';
+  const nTA=el('textarea'); nTA.rows=4; nTA.placeholder='Anything else worth noting.'; nTA.value=state.ci.notes;
+  nTA.addEventListener('input',e=>state.ci.notes=e.target.value);
+  nF.append(nL,nTA); main.appendChild(nF);
+
+  actBar.style.display='block';
+  const canSave = state.ci.mood && state.ci.sleepHours && state.ci.sleepQuality;
+  const saveBtn=el('button',{class:'btn-red',onClick:saveCI},'SAVE CHECK-IN');
+  if (!canSave) saveBtn.style.opacity='0.4';
+  actBar.appendChild(saveBtn);
+}
+
+// ── Detail views ──────────────────────────────────────────────────────────────
+
+function renderDetail(main, e) {
+  main.appendChild(el('button',{class:'btn-back',onClick:()=>{state.view='list';render();}},'← BACK TO LOG'));
+  const dateD=div('detail-date'); dateD.textContent=fmtDate(e.timestamp); main.appendChild(dateD);
+  const titleD=div('detail-title'); titleD.textContent=SYMPTOM_LABELS[e.symptom]; titleD.style.color=sevColor(e.severity); main.appendChild(titleD);
+  const subD=div('detail-sub'); subD.textContent=`Severity ${e.severity}/10${e.location?' · '+e.location:''}`; main.appendChild(subD);
+
+  const divider=div('detail-divider');
+  (SYMPTOM_PROMPTS[e.symptom]||[]).forEach((q,i)=>{
+    if (!e.responses?.[i]) return;
+    const qd=div('qa-q'); qd.textContent=q; divider.appendChild(qd);
+    const ad=div('qa-a'); ad.textContent=e.responses[i]; divider.appendChild(ad);
+  });
+  if (e.freewrite) {
+    const d2=div('detail-divider');
+    const l=div('field-label'); l.textContent='ADDITIONAL NOTES'; l.style.marginBottom='8px'; d2.appendChild(l);
+    const t=div(''); t.style.cssText='font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap'; t.textContent=e.freewrite; d2.appendChild(t);
+    divider.appendChild(d2);
+  }
+  main.appendChild(divider);
+}
+
+function renderDetailCI(main, c) {
+  main.appendChild(el('button',{class:'btn-back',onClick:()=>{state.view='list';render();}},'← BACK TO LOG'));
+  const dateD=div('detail-date'); dateD.textContent=fmtDate(c.timestamp); main.appendChild(dateD);
+  const titleD=div('detail-title'); titleD.textContent=`Mood ${c.mood}/10`; titleD.style.color=sevColor(c.mood); main.appendChild(titleD);
+
+  const rows=[['SLEEP',`${c.sleepHours} hrs · Quality ${c.sleepQuality}/10`],['ALCOHOL',c.alcohol==='yes'?'Yes':'No'],['WORK IMPACT',c.workImpact||'—']];
+  rows.forEach(([l,v])=>{
+    const r=div('detail-row');
+    const rl=div('detail-row-label'); rl.textContent=l;
+    const rv=div('detail-row-val'); rv.textContent=v;
+    r.append(rl,rv); main.appendChild(r);
+  });
+
+  const d=div('detail-divider');
+  const symL=div('field-label'); symL.textContent='ACTIVE SYMPTOMS'; symL.style.marginBottom='10px'; d.appendChild(symL);
+  const tagRow=div('tag-row');
+  CHECKIN_SYMS.forEach(s=>{
+    const on=c.symptoms?.includes(s.key);
+    const t=div(`tag${on?' active':''}`); t.textContent=s.label; tagRow.appendChild(t);
+  });
+  d.appendChild(tagRow);
+  if (c.notes) {
+    const d2=div('detail-divider');
+    const l=div('field-label'); l.textContent='NOTES'; l.style.marginBottom='8px'; d2.appendChild(l);
+    const t=div(''); t.style.cssText='font-size:13px;line-height:1.7;white-space:pre-wrap'; t.textContent=c.notes; d2.appendChild(t);
+    d.appendChild(d2);
+  }
+  main.appendChild(d);
+}
+
+// ── Save actions ──────────────────────────────────────────────────────────────
+
+function saveInc() {
+  incidents.unshift({ ...state.inc, id: Date.now() });
+  save(INC_KEY, incidents);
+  state.view='list'; state.tab='incidents';
+  state.inc={ symptom:'', severity:'', location:'', responses:{}, freewrite:'', timestamp:now() };
+  state.incStep=0;
+  render();
+}
+
+function saveCI() {
+  if (!state.ci.mood || !state.ci.sleepHours || !state.ci.sleepQuality) return;
+  checkins.unshift({ ...state.ci, id: Date.now() });
+  save(CHK_KEY, checkins);
+  state.view='list'; state.tab='checkins';
+  state.ci={ mood:'', sleepHours:'', sleepQuality:'', symptoms:[], alcohol:'', workImpact:'', notes:'', timestamp:now() };
+  render();
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+
+function numpad(current, onChange, colorize) {
+  const wrap = div('numpad');
+  for (let i=1;i<=10;i++) {
+    const n=String(i), active=current===n;
+    const color = colorize ? sevColor(n) : '#c53030';
+    const cls = active ? (parseInt(n)<=3?'numpad-btn active-green':parseInt(n)<=6?'numpad-btn active-amber':'numpad-btn active-red') : 'numpad-btn';
+    const btn=el('button',{class:cls},n);
+    btn.addEventListener('click',()=>onChange(n));
+    wrap.appendChild(btn);
+  }
+  return wrap;
+}
+
+function smallNumpad(current, onChange) {
+  const wrap=div('numpad'); wrap.style.gap='4px';
+  for(let i=1;i<=10;i++){
+    const n=String(i),active=current===n;
+    const cls=active?(parseInt(n)<=3?'numpad-btn active-green':parseInt(n)<=6?'numpad-btn active-amber':'numpad-btn active-red'):'numpad-btn';
+    const btn=el('button',{class:cls},n); btn.style.cssText='width:36px;height:36px;font-size:12px';
+    btn.addEventListener('click',()=>onChange(n));
+    wrap.appendChild(btn);
+  }
+  return wrap;
+}
+
+function dateField(parent, label, value, onChange) {
+  const f=div('field');
+  const l=div('field-label'); l.textContent=label;
+  const inp=el('input',{type:'datetime-local'}); inp.value=toInputVal(value);
+  inp.addEventListener('change',e=>{ const d=new Date(e.target.value); if(!isNaN(d)) onChange(d.toISOString()); });
+  f.append(l,inp); parent.appendChild(f);
+}
+
+function stepLabel(parent, cur, tot, label) {
+  const d=div('step-label');
+  d.textContent = cur ? `STEP ${cur} OF ${tot} — ${label}` : label;
+  parent.appendChild(d);
+}
+
+function stepTitle(parent, text) {
+  const d=div('step-title'); d.textContent=text; parent.appendChild(d);
+}
+
+function emptyState(label, sub) {
+  const d=div('empty');
+  const icon=div('empty-icon'); icon.textContent='◈';
+  const lbl=div('empty-label'); lbl.textContent=label;
+  const s=div('empty-sub'); s.textContent=sub;
+  d.append(icon,lbl,s); return d;
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => { state.tab = t.dataset.tab; render(); });
+});
+
+// ── Service worker ────────────────────────────────────────────────────────────
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+
+// ── Install prompt ────────────────────────────────────────────────────────────
+
+let deferredPrompt;
+const banner  = document.getElementById('install-banner');
+const instBtn = document.getElementById('install-btn');
+const disBtn  = document.getElementById('dismiss-btn');
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  banner.style.display = 'flex';
+});
+
+instBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  banner.style.display = 'none';
+});
+
+disBtn.addEventListener('click', () => { banner.style.display = 'none'; });
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+
+function startNewInc() {
+  state.inc = { symptom:'', severity:'', location:'', responses:{}, freewrite:'', timestamp:now() };
+  state.incStep=0; state.view='newInc'; render();
+}
+
+function startNewCI() {
+  state.ci = { mood:'', sleepHours:'', sleepQuality:'', symptoms:[], alcohol:'', workImpact:'', notes:'', timestamp:now() };
+  state.view='newCI'; render();
+}
+
+render();
+</script>
+</body>
+</html>
